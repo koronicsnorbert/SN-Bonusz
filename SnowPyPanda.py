@@ -3,6 +3,7 @@ import json
 import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
 import os
 
 
@@ -11,22 +12,47 @@ pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('mode.chained_assignment', None)
-load_dotenv('.env')  # take environment variables from .env.
+load_dotenv('.env')
 
 r=requests.get(os.getenv("SNurl"), auth=(os.getenv("SNuser"), os.getenv("SNpass")))
 rawjson = json.loads(r.text)
-
 df = pd.json_normalize(rawjson, record_path =['result']).replace(r'^s*$', float('NaN'), regex = True)
 #print(df)
-pivot = df[['resolved_by.display_value', 'number', 'business_duration','subcategory','u_sulyozas_mero']]
+pivot = df[['resolved_by.display_value', 'number', 'calendar_duration','subcategory','u_sulyozas_mero']]
 #print(pivot)
-
+#print(pivot.dtypes)
 pivot["u_sulyozas_mero"] = pivot["u_sulyozas_mero"].astype(float)
-pivot["business_duration"] = pd.to_timedelta(pivot['business_duration'])
+pivot["calendar_duration"] = pd.to_timedelta(pivot['calendar_duration'], unit='h', errors="coerce")
+#pivot["business_calendar_duration"] = pivot["business_calendar_duration"].dt.total_seconds()
 
 
-print(pd.pivot_table(pivot,
+#print(pivot.dtypes)
+# pivot["business_calendar_duration_sec"] = pivot["business_calendar_duration"].apply(lambda x: x.total_seconds())
+#print(pivot)
+df1 = pd.pivot_table(pivot,
                      index = ["resolved_by.display_value"],
-                     values = ["u_sulyozas_mero","business_duration"],
-                     aggfunc =dict(u_sulyozas_mero=np.sum, business_duration=np.mean)))
+                     values = ["u_sulyozas_mero","calendar_duration"],
+                     aggfunc =dict(u_sulyozas_mero=np.sum, calendar_duration=np.mean))
 
+
+df2 = df1.reset_index()
+df2.columns = ['Név', 'Atlagos_Megoldasi_Ido', 'OsszSuly']
+avg_suly = df2["OsszSuly"].mean()
+maxatlagido = pd.Timedelta((os.getenv("Maxatlagido")))
+df2["Teljesitmeny"] = df2.OsszSuly/avg_suly
+df2["Bonus"] = np.where((df2['OsszSuly']>avg_suly) & (df2["Atlagos_Megoldasi_Ido"] < maxatlagido), df2.Teljesitmeny * int(os.getenv("Bonusz")), '0')
+df2["Bonus"] = df2["Bonus"].astype(float)
+#print(df2)
+#print(df2.dtypes)
+# print(avg_suly)
+# print(maxatlagido)
+kinekbonusz = df2.loc[df2['Bonus'] > 0]
+#print(kinekbonusz)
+
+print("Bónusz feltételek: \n\n"
+      "Havi átlag jegysúly: ",avg_suly,
+      "\nMax átlag megoldási idő:", maxatlagido,
+      "\nBónusz mértéke:",int(os.getenv("Bonusz")),
+      "\n\n Havi riport\n\n", df2[['Név', 'Atlagos_Megoldasi_Ido', 'OsszSuly']],
+      "\n\n Bónuszra jogosultak:\n", kinekbonusz[['Név', 'Bonus']]
+    )

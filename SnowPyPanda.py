@@ -53,6 +53,6 @@ print("Bónusz feltételek: \n\n"
       "Havi átlag jegysúly: ",avg_suly,
       "\nMax átlag megoldási idő:", maxatlagido,
       "\nBónusz mértéke:",int(os.getenv("Bonusz")),
-      "\n\n Havi riport\n\n", df2[['Név', 'Atlagos_Megoldasi_Ido', 'OsszSuly']],
-      "\n\n Bónuszra jogosultak:\n", kinekbonusz[['Név', 'Bonus']]
-    )
+      "\n\n Havi riport\n\n", df2[['Név', 'Atlagos_Megoldasi_Ido', 'OsszSuly']].sort_values(by='OsszSuly', ascending=False),
+      "\n\n Bónuszra jogosultak:\n", kinekbonusz[['Név', 'Bonus']].sort_values(by='Bonus', ascending=False)
+      )

@@ -3,6 +3,7 @@ import json
 import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
+import locale
 from datetime import datetime, timedelta
 import os
 
@@ -12,6 +13,9 @@ pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('mode.chained_assignment', None)
+np.set_printoptions(suppress=True)
+locale.setlocale( locale.LC_ALL, 'hu_HU.UTF-8')
+
 load_dotenv('.env')
 
 r=requests.get(os.getenv("SNurl"), auth=(os.getenv("SNuser"), os.getenv("SNpass")))
@@ -37,22 +41,18 @@ df1 = pd.pivot_table(pivot,
 
 df2 = df1.reset_index()
 df2.columns = ['Név', 'Atlagos_Megoldasi_Ido', 'OsszSuly']
-avg_suly = df2["OsszSuly"].mean()
+avg_suly = df2["OsszSuly"].mean().astype(float).astype(int)
 maxatlagido = pd.Timedelta((os.getenv("Maxatlagido")))
 df2["Teljesitmeny"] = df2.OsszSuly/avg_suly
-df2["Bonus"] = np.where((df2['OsszSuly']>avg_suly) & (df2["Atlagos_Megoldasi_Ido"] < maxatlagido), df2.Teljesitmeny * int(os.getenv("Bonusz")), '0')
-df2["Bonus"] = df2["Bonus"].astype(float)
-#print(df2)
-#print(df2.dtypes)
-# print(avg_suly)
-# print(maxatlagido)
-kinekbonusz = df2.loc[df2['Bonus'] > 0]
-#print(kinekbonusz)
+df2["Bonus"] = np.where((df2['OsszSuly']>avg_suly) & (df2["Atlagos_Megoldasi_Ido"] < maxatlagido), df2.Teljesitmeny * int(os.getenv("Bonusz")), '0').astype(float).astype(int)
+kinekbonusz = df2.loc[df2['Bonus'] > 0].astype(str) + ' Ft'
+
+
 
 print("Bónusz feltételek: \n\n"
       "Havi átlag jegysúly: ",avg_suly,
       "\nMax átlag megoldási idő:", maxatlagido,
-      "\nBónusz mértéke:",int(os.getenv("Bonusz")),
+      "\nBónusz mértéke:",int(os.getenv("Bonusz")),"Ft",
       "\n\n Havi riport\n\n", df2[['Név', 'Atlagos_Megoldasi_Ido', 'OsszSuly']].sort_values(by='OsszSuly', ascending=False),
       "\n\n Bónuszra jogosultak:\n", kinekbonusz[['Név', 'Bonus']].sort_values(by='Bonus', ascending=False)
       )
